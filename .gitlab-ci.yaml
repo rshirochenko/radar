@@ -1,0 +1,40 @@
+
+variables:
+  IMAGE_NAME: $CI_REGISTRY_IMAGE
+
+stages:
+  - build-image
+  - lint
+  - deploy
+
+build-image:
+  stage: build-image
+  image:
+    name: registry-nexus.gid.team/kaniko-project/executor:debug
+    entrypoint: [ "" ]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_JOB_TOKEN\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --cache=true --context $CI_PROJECT_DIR --dockerfile Dockerfile --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+HELM LINTER:
+  stage: lint
+  image: registry-nexus.gid.team/dtzar/helm-kubectl:3.7.1
+  script:
+    - helm lint .helm/ -f .helm/values-test.yaml
+
+.base_deploy: &base_deploy
+  stage: deploy
+  image: registry-nexus.gid.team/dtzar/helm-kubectl:3.7.1
+  before_script:
+    - mkdir -p $HOME/.kube
+    - cat $KCONFIG > $HOME/.kube/config && chmod -R 0700 $HOME/.kube
+  script:
+    - envsubst < .helm/values-${CI_ENVIRONMENT_SLUG}.yaml > .helm/values.yaml
+    - helm upgrade $CI_PROJECT_NAME --install .helm/ -n ${CI_ENVIRONMENT_SLUG} --set image.tag=${CI_COMMIT_REF_SLUG} --atomic --timeout 120s --debug --install --cleanup-on-fail
+
+Deploy k8s dev:
+  <<: *base_deploy
+  environment:
+    name: dev
+  when: manual
+

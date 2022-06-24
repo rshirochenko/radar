@@ -1,0 +1,13 @@
+projectname: apig
+domain: gid-radar.k8s-dev.gid.team
+replicaCount: 1
+image:
+  repository: registry.gid.team/sso/gid-apig
+  pullPolicy: Always
+  tag: latest
+registysecret: registrysecret
+port: 8080
+sha_commit: $CI_COMMIT_SHORT_SHA
+env:
+  - name: CLIENT_ID
+    value: "26247702098-ks2oetj60tagq949dfjtturojnroi40d.apps.googleusercontent.com"
